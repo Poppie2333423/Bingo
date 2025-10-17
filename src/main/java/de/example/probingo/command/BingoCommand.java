@@ -4,6 +4,7 @@ import de.example.probingo.config.MessageService;
 import de.example.probingo.game.GameManager;
 import de.example.probingo.game.GameMode;
 import de.example.probingo.game.GameState;
+import de.example.probingo.game.GameStartResult;
 import de.example.probingo.gui.CardView;
 import java.util.ArrayList;
 import java.util.List;
@@ -76,7 +77,20 @@ public final class BingoCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messages.message("errors.not_enough_players"));
             return true;
         }
-        gameManager.startMatch(duration, mode);
+        GameStartResult result = gameManager.startMatch(duration, mode);
+        if (result == GameStartResult.SUCCESS) {
+            if (!(sender instanceof Player)) {
+                sender.sendMessage(messages.message("info.game_started"));
+            }
+        } else {
+            Component feedback = switch (result) {
+                case NOT_ENOUGH_PLAYERS -> messages.message("errors.not_enough_players");
+                case CARD_GENERATION_FAILED -> messages.message("errors.card_generation_failed");
+                case INVALID_STATE -> messages.message("errors.game_running");
+                default -> Component.text("Das Spiel konnte nicht gestartet werden.");
+            };
+            sender.sendMessage(feedback);
+        }
         return true;
     }
 

@@ -116,9 +116,9 @@ public final class GameManager {
         return players.size() >= 2;
     }
 
-    public void startMatch(int durationMinutes, GameMode overrideMode) {
+    public GameStartResult startMatch(int durationMinutes, GameMode overrideMode) {
         if (state != GameState.LOBBY) {
-            return;
+            return GameStartResult.INVALID_STATE;
         }
         List<Player> players = lobbyPlayers.isEmpty() ? collectEligibleOnlinePlayers() : collectEligibleLobbyPlayers();
         if (players.size() < 2) {
@@ -126,7 +126,7 @@ public final class GameManager {
             for (Player player : players) {
                 player.sendMessage(message);
             }
-            return;
+            return GameStartResult.NOT_ENOUGH_PLAYERS;
         }
         ConfigData data = configService.data();
         GameMode mode = overrideMode != null ? overrideMode : data.defaultMode();
@@ -143,7 +143,11 @@ public final class GameManager {
         pendingMaterials = null;
         if (materials.size() < 25) {
             plugin.getLogger().warning("Item-Pool lieferte weniger als 25 Materialien");
-            return;
+            Component error = plugin.messageService().message("errors.card_generation_failed");
+            for (Player player : players) {
+                player.sendMessage(error);
+            }
+            return GameStartResult.CARD_GENERATION_FAILED;
         }
         int limitMinutes = durationMinutes > 0 ? durationMinutes : data.timeLimitMinutes();
         int timeLimitSeconds = limitMinutes > 0 ? limitMinutes * 60 : 0;
@@ -179,6 +183,7 @@ public final class GameManager {
             player.sendMessage(startMessage);
         }
         startTimer();
+        return GameStartResult.SUCCESS;
     }
 
     private List<Player> collectEligibleLobbyPlayers() {
