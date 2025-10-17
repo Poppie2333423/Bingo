@@ -108,7 +108,7 @@ public final class CardView implements Listener {
         String name = MaterialNameFormatter.displayName(cell.material());
         if (cell.isCompleted()) {
             meta.displayName(Component.text("§a✔ " + name));
-            meta.addEnchant(Enchantment.LUCK, 1, true);
+            meta.addEnchant(Enchantment.LUCK_OF_THE_SEA, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
         } else {
             meta.displayName(Component.text("§f" + name));
