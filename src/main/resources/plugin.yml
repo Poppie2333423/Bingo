@@ -1,0 +1,17 @@
+name: ProBingo
+version: 1.0.0
+main: de.example.probingo.BingoPlugin
+author: ProBingo Team
+api-version: "1.21"
+depend: []
+commands:
+  bingo:
+    description: Verwaltung des ProBingo Matches
+    usage: /bingo <start|stop|card|reroll|add|remove>
+permissions:
+  probingo.admin:
+    description: Erlaubt Administrative Bingo Befehle
+    default: op
+  probingo.play:
+    description: Erlaubt Teilnahme am Bingo
+    default: true

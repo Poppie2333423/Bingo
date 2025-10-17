@@ -1,0 +1,42 @@
+mode: teams
+time_limit_minutes: 0
+allow_diagonals: true
+difficulty: NORMAL
+allow_nether: false
+allow_end: false
+allow_team_chat: true
+default_timer_direction: DOWN
+blacklist:
+  - NETHERITE_INGOT
+  - ELYTRA
+item_groups:
+  EASY:
+    weighted:
+      COAL: 4
+      TORCH: 4
+      LADDER: 3
+      BREAD: 3
+      BOWL: 3
+      OAK_SAPLING: 3
+      LEATHER: 2
+      FEATHER: 2
+      STRING: 2
+      BUCKET: 1
+  NORMAL:
+    weighted:
+      IRON_INGOT: 3
+      COPPER_INGOT: 3
+      SHEARS: 2
+      FLOWER_POT: 2
+      COMPASS: 1
+      MAP: 1
+      NAME_TAG: 1
+  HARD:
+    weighted:
+      SADDLE: 1
+      CLOCK: 1
+      SPYGLASS: 1
+win_conditions:
+  classic_rows: 1
+  blackout: false
+  lines_required: 1
