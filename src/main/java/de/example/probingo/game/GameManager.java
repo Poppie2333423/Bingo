@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -110,17 +109,18 @@ public final class GameManager {
     }
 
     public boolean canStart() {
-        return lobbyPlayers.size() >= 2 && state == GameState.LOBBY;
+        if (state != GameState.LOBBY) {
+            return false;
+        }
+        List<Player> players = lobbyPlayers.isEmpty() ? collectEligibleOnlinePlayers() : collectEligibleLobbyPlayers();
+        return players.size() >= 2;
     }
 
     public void startMatch(int durationMinutes, GameMode overrideMode) {
         if (state != GameState.LOBBY) {
             return;
         }
-        List<Player> players = lobbyPlayers.stream()
-                .map(Bukkit::getPlayer)
-                .filter(p -> p != null && p.isOnline())
-                .collect(Collectors.toCollection(ArrayList::new));
+        List<Player> players = lobbyPlayers.isEmpty() ? collectEligibleOnlinePlayers() : collectEligibleLobbyPlayers();
         if (players.size() < 2) {
             Component message = plugin.messageService().message("errors.not_enough_players");
             for (Player player : players) {
@@ -179,6 +179,29 @@ public final class GameManager {
             player.sendMessage(startMessage);
         }
         startTimer();
+    }
+
+    private List<Player> collectEligibleLobbyPlayers() {
+        List<Player> players = new ArrayList<>();
+        lobbyPlayers.removeIf(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline() || !player.hasPermission("probingo.play")) {
+                return true;
+            }
+            players.add(player);
+            return false;
+        });
+        return players;
+    }
+
+    private List<Player> collectEligibleOnlinePlayers() {
+        List<Player> players = new ArrayList<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (player.hasPermission("probingo.play")) {
+                players.add(player);
+            }
+        }
+        return players;
     }
 
     private void openCards(Collection<Player> players) {
