@@ -41,6 +41,8 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     private final Set<UUID> syncingFood = new HashSet<>();
     private final Set<UUID> syncingHealth = new HashSet<>();
     private final Set<UUID> syncingDeath = new HashSet<>();
+    private final Map<UUID, Integer> lastInventoryHash = new HashMap<>();
+    private final Map<UUID, Long> lastInventoryChange = new HashMap<>();
 
     @Override
     public void onEnable() {
@@ -54,6 +56,8 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         groups.clear();
         playerGroups.clear();
         waitingPlayers.clear();
+        lastInventoryHash.clear();
+        lastInventoryChange.clear();
     }
 
     @Override
@@ -122,6 +126,8 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         }
         for (UUID memberId : members) {
             playerGroups.remove(memberId);
+            lastInventoryHash.remove(memberId);
+            lastInventoryChange.remove(memberId);
             if (!memberId.equals(playerId)) {
                 Player member = Bukkit.getPlayer(memberId);
                 if (member != null) {
@@ -291,6 +297,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
                     drawLinks(players);
                     enforceDistance(players);
                     syncStatus(players);
+                    detectInventoryChanges(players);
                     syncInventory(players);
                 }
             }
@@ -367,9 +374,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     }
 
     private void syncInventory(List<Player> players) {
-        Player source = players.stream()
-                .min((a, b) -> a.getUniqueId().compareTo(b.getUniqueId()))
-                .orElse(null);
+        Player source = chooseInventorySource(players);
         if (source == null) {
             return;
         }
@@ -392,6 +397,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
                 copyInventory(source, player);
             }
         }
+        updateInventoryHashes(players);
     }
 
     private void copyInventory(Player source, Player target) {
@@ -421,5 +427,40 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
                 inventory.getArmorContents(),
                 inventory.getItemInOffHand()
         });
+    }
+
+    private void detectInventoryChanges(List<Player> players) {
+        long now = System.currentTimeMillis();
+        for (Player player : players) {
+            UUID playerId = player.getUniqueId();
+            int currentHash = inventoryHash(player.getInventory());
+            Integer storedHash = lastInventoryHash.get(playerId);
+            if (storedHash == null || storedHash != currentHash) {
+                lastInventoryHash.put(playerId, currentHash);
+                lastInventoryChange.put(playerId, now);
+            }
+        }
+    }
+
+    private Player chooseInventorySource(List<Player> players) {
+        Player best = null;
+        long bestChange = -1L;
+        for (Player player : players) {
+            long change = lastInventoryChange.getOrDefault(player.getUniqueId(), 0L);
+            if (best == null || change > bestChange
+                    || (change == bestChange && player.getUniqueId().compareTo(best.getUniqueId()) < 0)) {
+                best = player;
+                bestChange = change;
+            }
+        }
+        return best;
+    }
+
+    private void updateInventoryHashes(List<Player> players) {
+        for (Player player : players) {
+            UUID playerId = player.getUniqueId();
+            lastInventoryHash.put(playerId, inventoryHash(player.getInventory()));
+            lastInventoryChange.putIfAbsent(playerId, System.currentTimeMillis());
+        }
     }
 }
