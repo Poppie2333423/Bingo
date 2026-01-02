@@ -11,6 +11,8 @@ import org.bukkit.ChatColor;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
@@ -18,12 +20,11 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Cat;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Turtle;
 import org.bukkit.entity.Wolf;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -156,56 +157,56 @@ public class RandomEventsPlugin extends JavaPlugin implements CommandExecutor, L
 
     private void registerEvents() {
         events.clear();
-        addEvent("Blitzschlag", world -> getRandomPlayer().ifPresent(player -> world.strikeLightning(player.getLocation())));
-        addEvent("Geschwindigkeitsrausch", world -> applyPotionToAll(PotionEffectType.SPEED, 20 * 15, 1));
-        addEvent("Sprungkraft", world -> applyPotionToAll(PotionEffectType.JUMP_BOOST, 20 * 15, 1));
-        addEvent("Stärke", world -> applyPotionToAll(PotionEffectType.STRENGTH, 20 * 12, 0));
-        addEvent("Regeneration", world -> applyPotionToAll(PotionEffectType.REGENERATION, 20 * 8, 1));
-        addEvent("Zufälliger Trank", world -> giveRandomPotion());
-        addEvent("Feuerwerkshow", world -> launchFireworks());
-        addEvent("Hühnerregen", world -> spawnMobRain(EntityType.CHICKEN, 6));
-        addEvent("Creeper in der Nähe", world -> spawnMobNearPlayers(EntityType.CREEPER, 1, 4));
-        addEvent("Skelettpferd", world -> spawnMobNearPlayers(EntityType.SKELETON_HORSE, 1, 3));
-        addEvent("Tag wird", world -> world.setTime(1000));
-        addEvent("Nacht wird", world -> world.setTime(13000));
-        addEvent("Regen startet", world -> world.setStorm(true));
-        addEvent("Regen endet", world -> world.setStorm(false));
-        addEvent("Diamantenregen", world -> dropItems(Material.DIAMOND, 4));
-        addEvent("Goldregen", world -> dropItems(Material.GOLD_INGOT, 6));
-        addEvent("TNT Lieferung", world -> dropItems(Material.TNT, 3));
-        addEvent("Mini-Explosion", world -> getRandomPlayer().ifPresent(player -> world.createExplosion(player.getLocation(), 2.0F, false, false)));
-        addEvent("Katapult", world -> Bukkit.getOnlinePlayers().forEach(player -> player.setVelocity(new Vector(0, 1.4, 0))));
-        addEvent("Spieler tauschen Plätze", world -> swapPlayers());
-        addEvent("Glow-Effekt", world -> applyPotionToAll(PotionEffectType.GLOWING, 20 * 12, 0));
-        addEvent("Eisengolem-Wächter", world -> spawnMobNearPlayers(EntityType.IRON_GOLEM, 1, 3));
-        addEvent("Bienen-Schwarm", world -> spawnMobNearPlayers(EntityType.BEE, 3, 3));
-        addEvent("Wolf-Rudel", world -> spawnMobNearPlayers(EntityType.WOLF, 2, 3));
-        addEvent("Zombiehorde", world -> spawnMobNearPlayers(EntityType.ZOMBIE, 4, 4));
-        addEvent("Unsichtbarkeit", world -> applyPotionToAll(PotionEffectType.INVISIBILITY, 20 * 10, 0));
-        addEvent("Slow Falling", world -> applyPotionToAll(PotionEffectType.SLOW_FALLING, 20 * 20, 0));
-        addEvent("Schnellabbau", world -> applyPotionToAll(PotionEffectType.HASTE, 20 * 15, 1));
-        addEvent("Sättigung", world -> applyPotionToAll(PotionEffectType.SATURATION, 20 * 6, 0));
-        addEvent("Feuerresistenz", world -> applyPotionToAll(PotionEffectType.FIRE_RESISTANCE, 20 * 20, 0));
-        addEvent("Schneeballregen", world -> dropItems(Material.SNOWBALL, 12));
-        addEvent("Enderperlen-Geschenk", world -> dropItems(Material.ENDER_PEARL, 3));
-        addEvent("Totem-Geschenk", world -> dropItems(Material.TOTEM_OF_UNDYING, 1));
-        addEvent("Zufälliges Haustier", world -> spawnPet());
-        addEvent("Schatzkiste", world -> dropTreasure());
-        addEvent("Mini-Teleport", world -> teleportPlayersRandomly(6));
-        addEvent("Sandsturm", world -> dropItems(Material.SAND, 10));
-        addEvent("Slime-Party", world -> spawnMobNearPlayers(EntityType.SLIME, 2, 4));
-        addEvent("Fledermaus-Schwarm", world -> spawnMobNearPlayers(EntityType.BAT, 5, 3));
-        addEvent("Lama-Karawane", world -> spawnMobNearPlayers(EntityType.LLAMA, 2, 4));
-        addEvent("Delfin-Schwarm", world -> spawnDolphins());
-        addEvent("Fuchs-Rudel", world -> spawnMobNearPlayers(EntityType.FOX, 2, 4));
-        addEvent("Schildkröten", world -> spawnMobNearPlayers(EntityType.TURTLE, 2, 4));
-        addEvent("Pilzkuh", world -> spawnMobNearPlayers(EntityType.MOOSHROOM, 1, 4));
-        addEvent("Schneegolems", world -> spawnMobNearPlayers(EntityType.SNOW_GOLEM, 2, 4));
-        addEvent("Endermänner", world -> spawnMobNearPlayers(EntityType.ENDERMAN, 2, 4));
-        addEvent("Hexe erscheint", world -> spawnMobNearPlayers(EntityType.WITCH, 1, 4));
-        addEvent("Sturmböen", world -> applyPotionToAll(PotionEffectType.LEVITATION, 20 * 3, 0));
-        addEvent("Glücksboost", world -> applyPotionToAll(PotionEffectType.LUCK, 20 * 20, 0));
-        addEvent("Rüstungsglanz", world -> giveEnchantedArmor());
+        addEvent("Kettenblitze", world -> getRandomPlayer().ifPresent(player -> lightningChain(player.getLocation(), 4)));
+        addEvent("Wither-Fluch", world -> applyPotionToAll(PotionEffectType.WITHER, 20 * 8, 1));
+        addEvent("Blindes Chaos", world -> applyPotionToAll(PotionEffectType.BLINDNESS, 20 * 10, 0));
+        addEvent("Nebel im Kopf", world -> applyPotionToAll(PotionEffectType.NAUSEA, 20 * 12, 0));
+        addEvent("Eiseskälte", world -> applyPotionToAll(PotionEffectType.SLOWNESS, 20 * 15, 1));
+        addEvent("Schwächeanfall", world -> applyPotionToAll(PotionEffectType.WEAKNESS, 20 * 15, 0));
+        addEvent("Dunkelheit", world -> applyPotionToAll(PotionEffectType.DARKNESS, 20 * 8, 0));
+        addEvent("Erschöpfung", world -> drainHunger());
+        addEvent("Feuerzeichen", world -> setPlayersOnFire(5));
+        addEvent("Magnet-Schub", world -> pullPlayersTogether(8));
+        addEvent("Stoßwelle", world -> blastPlayersAway());
+        addEvent("Knall und Rauch", world -> spawnParticleCloud(Particle.CAMPFIRE_COSY_SMOKE, 80));
+        addEvent("Phantomfluch", world -> spawnMobNearPlayers(EntityType.PHANTOM, 2, 6));
+        addEvent("Wächter aus der Tiefe", world -> spawnMobNearPlayers(EntityType.GUARDIAN, 1, 4));
+        addEvent("Ravager-Alarm", world -> spawnMobNearPlayers(EntityType.RAVAGER, 1, 6));
+        addEvent("Evoker-Zirkel", world -> spawnMobNearPlayers(EntityType.EVOKER, 1, 6));
+        addEvent("Vex-Schwarm", world -> spawnMobNearPlayers(EntityType.VEX, 3, 5));
+        addEvent("Magma-Sturz", world -> spawnMobRain(EntityType.MAGMA_CUBE, 4));
+        addEvent("Skelett-Bogenschützen", world -> spawnMobNearPlayers(EntityType.SKELETON, 3, 5));
+        addEvent("Creeper-Angriff", world -> spawnMobNearPlayers(EntityType.CREEPER, 2, 5));
+        addEvent("Hoglin-Ansturm", world -> spawnMobNearPlayers(EntityType.HOGLIN, 2, 6));
+        addEvent("Spinnenweben", world -> spawnMobNearPlayers(EntityType.CAVE_SPIDER, 3, 5));
+        addEvent("Ender-Überraschung", world -> spawnMobNearPlayers(EntityType.ENDERMAN, 3, 6));
+        addEvent("Schleimschlag", world -> spawnMobNearPlayers(EntityType.SLIME, 3, 5));
+        addEvent("Donnersturm", world -> startThunderstorm());
+        addEvent("Ascheregen", world -> spawnFallingBlocks(Material.GRAY_CONCRETE_POWDER, 6));
+        addEvent("Anvil-Regen", world -> spawnFallingBlocks(Material.ANVIL, 3));
+        addEvent("Lava-Spritzer", world -> spawnLavaBurst());
+        addEvent("Stachelfeld", world -> placeThornsAroundPlayers());
+        addEvent("Netherglut", world -> applyPotionToAll(PotionEffectType.FIRE_RESISTANCE, 20 * 5, 0));
+        addEvent("Verwirrungsteleport", world -> teleportPlayersRandomly(12));
+        addEvent("Zeitfrost", world -> applyPotionToAll(PotionEffectType.SLOW_FALLING, 20 * 8, 0));
+        addEvent("Magische Erschütterung", world -> playSoundAll(Sound.ENTITY_WARDEN_SONIC_BOOM));
+        addEvent("Tränengas", world -> applyPotionToAll(PotionEffectType.POISON, 20 * 8, 0));
+        addEvent("Geringe Heilung", world -> applyPotionToAll(PotionEffectType.REGENERATION, 20 * 5, 0));
+        addEvent("Lähmung", world -> applyPotionToAll(PotionEffectType.MINING_FATIGUE, 20 * 20, 1));
+        addEvent("Glühende Ziele", world -> applyPotionToAll(PotionEffectType.GLOWING, 20 * 20, 0));
+        addEvent("Schicksalswürfel", world -> giveRandomPotion());
+        addEvent("Erdspalt", world -> createSmallExplosions());
+        addEvent("TNT-Fracht", world -> dropItems(Material.TNT, 2));
+        addEvent("Sandsack", world -> dropItems(Material.SAND, 16));
+        addEvent("Schattenkatzen", world -> spawnPet());
+        addEvent("Eisige Winde", world -> applyPotionToAll(PotionEffectType.SLOWNESS, 20 * 10, 2));
+        addEvent("Schockwelle", world -> applyPotionToAll(PotionEffectType.LEVITATION, 20 * 2, 1));
+        addEvent("Gruselmelodie", world -> playSoundAll(Sound.AMBIENT_CAVE));
+        addEvent("Warnsirene", world -> playSoundAll(Sound.BLOCK_NOTE_BLOCK_PLING));
+        addEvent("Geschenk des Unglücks", world -> dropItems(Material.ROTTEN_FLESH, 6));
+        addEvent("Rüstungskratzer", world -> damageArmor());
+        addEvent("Chaosfunken", world -> spawnParticleCloud(Particle.ELECTRIC_SPARK, 120));
+        addEvent("Himmel stürzt", world -> spawnFallingBlocks(Material.STONE, 5));
     }
 
     private void addEvent(String name, Consumer<World> action) {
@@ -317,6 +318,126 @@ public class RandomEventsPlugin extends JavaPlugin implements CommandExecutor, L
         dropItemToAll(emeralds);
     }
 
+    private void lightningChain(Location origin, int strikes) {
+        World world = origin.getWorld();
+        for (int i = 0; i < strikes; i++) {
+            Location strike = origin.clone().add(randomOffset(6), 0, randomOffset(6));
+            strike.setY(world.getHighestBlockYAt(strike) + 1);
+            world.strikeLightning(strike);
+        }
+    }
+
+    private void drainHunger() {
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            int food = Math.max(0, player.getFoodLevel() - 6);
+            player.setFoodLevel(food);
+            player.setSaturation(0);
+        });
+    }
+
+    private void setPlayersOnFire(int seconds) {
+        Bukkit.getOnlinePlayers().forEach(player -> player.setFireTicks(seconds * 20));
+    }
+
+    private void pullPlayersTogether(int strength) {
+        List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
+        if (players.size() < 2) {
+            return;
+        }
+        Vector center = new Vector();
+        players.forEach(player -> center.add(player.getLocation().toVector()));
+        center.multiply(1.0 / players.size());
+        players.forEach(player -> {
+            Vector direction = center.clone().subtract(player.getLocation().toVector()).normalize();
+            player.setVelocity(direction.multiply(strength / 10.0).setY(0.2));
+        });
+    }
+
+    private void blastPlayersAway() {
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            Vector push = new Vector(randomOffset(2), 1.1, randomOffset(2));
+            player.setVelocity(push);
+        });
+    }
+
+    private void spawnParticleCloud(Particle particle, int count) {
+        Bukkit.getOnlinePlayers().forEach(player -> player.getWorld().spawnParticle(
+            particle,
+            player.getLocation().add(0, 1.2, 0),
+            count,
+            1.5,
+            1.0,
+            1.5,
+            0.01
+        ));
+    }
+
+    private void startThunderstorm() {
+        World world = getPrimaryWorld();
+        world.setStorm(true);
+        world.setThundering(true);
+        world.setWeatherDuration(20 * 60);
+        world.setThunderDuration(20 * 60);
+    }
+
+    private void spawnFallingBlocks(Material material, int amount) {
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            for (int i = 0; i < amount; i++) {
+                Location spawn = player.getLocation().clone().add(randomOffset(4), 10 + random.nextInt(4), randomOffset(4));
+                FallingBlock block = player.getWorld().spawnFallingBlock(spawn, material.createBlockData());
+                block.setDropItem(false);
+                block.setHurtEntities(true);
+            }
+        });
+    }
+
+    private void spawnLavaBurst() {
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            player.getWorld().spawnParticle(Particle.LAVA, player.getLocation().add(0, 1, 0), 30, 0.8, 0.8, 0.8);
+            player.setFireTicks(60);
+        });
+    }
+
+    private void placeThornsAroundPlayers() {
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            Location base = player.getLocation();
+            for (int i = 0; i < 6; i++) {
+                Location spot = base.clone().add(randomOffset(3), 0, randomOffset(3));
+                spot.setY(spot.getWorld().getHighestBlockYAt(spot) + 1);
+                player.getWorld().spawnEntity(spot, EntityType.EVOKER_FANGS);
+            }
+        });
+    }
+
+    private void playSoundAll(Sound sound) {
+        Bukkit.getOnlinePlayers().forEach(player -> player.getWorld().playSound(player.getLocation(), sound, 1.0F, 1.0F));
+    }
+
+    private void createSmallExplosions() {
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            Location base = player.getLocation();
+            for (int i = 0; i < 3; i++) {
+                Location boom = base.clone().add(randomOffset(3), 0, randomOffset(3));
+                player.getWorld().createExplosion(boom, 1.5F, false, false);
+            }
+        });
+    }
+
+    private void damageArmor() {
+        Bukkit.getOnlinePlayers().forEach(player -> {
+            for (ItemStack piece : player.getInventory().getArmorContents()) {
+                if (piece == null) {
+                    continue;
+                }
+                ItemMeta meta = piece.getItemMeta();
+                if (meta instanceof org.bukkit.inventory.meta.Damageable damageable) {
+                    damageable.setDamage(damageable.getDamage() + 15);
+                    piece.setItemMeta(damageable);
+                }
+            }
+        });
+    }
+
     private void teleportPlayersRandomly(int radius) {
         Bukkit.getOnlinePlayers().forEach(player -> {
             Location base = player.getLocation();
@@ -334,13 +455,6 @@ public class RandomEventsPlugin extends JavaPlugin implements CommandExecutor, L
                 player.getWorld().spawnEntity(location, EntityType.DOLPHIN);
             }
         });
-    }
-
-    private void giveEnchantedArmor() {
-        ItemStack helmet = new ItemStack(Material.DIAMOND_HELMET);
-        helmet.addUnsafeEnchantment(Enchantment.PROTECTION, 3);
-        helmet.addUnsafeEnchantment(Enchantment.UNBREAKING, 2);
-        dropItemToAll(helmet);
     }
 
     private double randomOffset(int radius) {
