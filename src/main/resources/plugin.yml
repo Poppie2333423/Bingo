@@ -1,0 +1,8 @@
+name: BingoLink
+version: 1.0.0
+main: com.example.bingo.BingoLinkPlugin
+api-version: '1.21'
+commands:
+  start:
+    description: Startet die Verbindung zwischen zwei Spielern.
+    usage: /start
