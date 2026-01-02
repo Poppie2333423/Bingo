@@ -4,23 +4,30 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.Particle;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Bat;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.EntityRegainHealthEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,10 +37,11 @@ import org.bukkit.util.Vector;
 public class BingoLinkPlugin extends JavaPlugin implements Listener {
     private static final double MAX_DISTANCE = 10.0;
     private static final double PULL_STRENGTH = 0.3;
-    private static final int PARTICLE_STEPS = 20;
 
     private final Map<UUID, UUID> links = new HashMap<>();
     private final Map<UUID, Integer> inventoryHashes = new HashMap<>();
+    private final Map<UUID, Long> lastInventoryChange = new HashMap<>();
+    private final Map<UUID, UUID> leashEntities = new HashMap<>();
     private final Set<UUID> syncingDamage = new HashSet<>();
     private final Set<UUID> syncingFood = new HashSet<>();
     private final Set<UUID> syncingHealth = new HashSet<>();
@@ -49,6 +57,8 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     public void onDisable() {
         links.clear();
         inventoryHashes.clear();
+        lastInventoryChange.clear();
+        cleanupLeashes();
         waitingPlayer = null;
     }
 
@@ -92,15 +102,19 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         if (partnerId != null) {
             links.remove(partnerId);
             inventoryHashes.remove(partnerId);
+            lastInventoryChange.remove(partnerId);
+            removeLeash(partnerId);
             Player partner = Bukkit.getPlayer(partnerId);
             if (partner != null) {
                 partner.sendMessage(ChatColor.RED + "Deine Verbindung wurde getrennt.");
             }
         }
+        removeLeash(playerId);
         if (waitingPlayer != null && waitingPlayer.equals(playerId)) {
             waitingPlayer = null;
         }
         inventoryHashes.remove(playerId);
+        lastInventoryChange.remove(playerId);
     }
 
     @EventHandler
@@ -167,12 +181,45 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         partner.setHealth(0.0);
     }
 
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (event.getWhoClicked() instanceof Player player) {
+            markInventoryChange(player);
+        }
+    }
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (event.getWhoClicked() instanceof Player player) {
+            markInventoryChange(player);
+        }
+    }
+
+    @EventHandler
+    public void onDropItem(PlayerDropItemEvent event) {
+        markInventoryChange(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onPickupItem(EntityPickupItemEvent event) {
+        if (event.getEntity() instanceof Player player) {
+            markInventoryChange(player);
+        }
+    }
+
+    @EventHandler
+    public void onSwapHands(PlayerSwapHandItemsEvent event) {
+        markInventoryChange(event.getPlayer());
+    }
+
     private void createLink(Player playerOne, Player playerTwo) {
         links.put(playerOne.getUniqueId(), playerTwo.getUniqueId());
         links.put(playerTwo.getUniqueId(), playerOne.getUniqueId());
         playerOne.sendMessage(ChatColor.GREEN + "Du bist jetzt verbunden mit " + playerTwo.getName() + ".");
         playerTwo.sendMessage(ChatColor.GREEN + "Du bist jetzt verbunden mit " + playerOne.getName() + ".");
         syncStatus(playerOne, playerTwo);
+        spawnLeash(playerOne, playerTwo);
+        spawnLeash(playerTwo, playerOne);
     }
 
     private Player getPartner(Player player) {
@@ -197,7 +244,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
                     if (playerId.compareTo(partner.getUniqueId()) > 0) {
                         continue;
                     }
-                    drawLink(player, partner);
+                    updateLeash(player, partner);
                     enforceDistance(player, partner);
                     syncStatus(player, partner);
                     syncInventory(player, partner);
@@ -206,14 +253,14 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         }.runTaskTimer(this, 0L, 5L);
     }
 
-    private void drawLink(Player player, Player partner) {
-        Vector start = player.getLocation().toVector().add(new Vector(0, 1.0, 0));
-        Vector end = partner.getLocation().toVector().add(new Vector(0, 1.0, 0));
-        Vector step = end.clone().subtract(start).multiply(1.0 / PARTICLE_STEPS);
-        for (int i = 0; i <= PARTICLE_STEPS; i++) {
-            Vector point = start.clone().add(step.clone().multiply(i));
-            player.getWorld().spawnParticle(Particle.DUST, point.getX(), point.getY(), point.getZ(), 1,
-                    new Particle.DustOptions(org.bukkit.Color.fromRGB(160, 82, 45), 1.2f));
+    private void updateLeash(Player player, Player partner) {
+        Entity leashEntity = getLeashEntity(player.getUniqueId());
+        if (leashEntity == null || leashEntity.isDead()) {
+            spawnLeash(player, partner);
+            leashEntity = getLeashEntity(player.getUniqueId());
+        }
+        if (leashEntity != null) {
+            leashEntity.teleport(partner.getLocation().add(0, 1.0, 0));
         }
     }
 
@@ -247,28 +294,29 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     private void syncInventory(Player player, Player partner) {
         int playerHash = inventoryHash(player.getInventory());
         int partnerHash = inventoryHash(partner.getInventory());
-        Integer storedHash = inventoryHashes.get(player.getUniqueId());
-        if (storedHash == null) {
-            storedHash = playerHash;
-        }
         if (playerHash != partnerHash) {
-            if (!Objects.equals(playerHash, storedHash) && Objects.equals(partnerHash, storedHash)) {
-                copyInventory(player, partner);
-                inventoryHashes.put(player.getUniqueId(), playerHash);
-                inventoryHashes.put(partner.getUniqueId(), playerHash);
-            } else if (!Objects.equals(partnerHash, storedHash) && Objects.equals(playerHash, storedHash)) {
-                copyInventory(partner, player);
-                inventoryHashes.put(player.getUniqueId(), partnerHash);
-                inventoryHashes.put(partner.getUniqueId(), partnerHash);
-            } else {
-                copyInventory(player, partner);
-                inventoryHashes.put(player.getUniqueId(), playerHash);
-                inventoryHashes.put(partner.getUniqueId(), playerHash);
-            }
+            Player source = chooseInventorySource(player, partner);
+            Player target = source.equals(player) ? partner : player;
+            copyInventory(source, target);
+            int sourceHash = inventoryHash(source.getInventory());
+            inventoryHashes.put(player.getUniqueId(), sourceHash);
+            inventoryHashes.put(partner.getUniqueId(), sourceHash);
         } else {
             inventoryHashes.put(player.getUniqueId(), playerHash);
             inventoryHashes.put(partner.getUniqueId(), partnerHash);
         }
+    }
+
+    private Player chooseInventorySource(Player player, Player partner) {
+        long playerChange = lastInventoryChange.getOrDefault(player.getUniqueId(), 0L);
+        long partnerChange = lastInventoryChange.getOrDefault(partner.getUniqueId(), 0L);
+        if (playerChange > partnerChange) {
+            return player;
+        }
+        if (partnerChange > playerChange) {
+            return partner;
+        }
+        return player.getUniqueId().compareTo(partner.getUniqueId()) <= 0 ? player : partner;
     }
 
     private void copyInventory(Player source, Player target) {
@@ -298,5 +346,50 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
                 inventory.getArmorContents(),
                 inventory.getItemInOffHand()
         });
+    }
+
+    private void markInventoryChange(Player player) {
+        lastInventoryChange.put(player.getUniqueId(), System.currentTimeMillis());
+    }
+
+    private void spawnLeash(Player player, Player partner) {
+        removeLeash(player.getUniqueId());
+        Location location = partner.getLocation().add(0, 1.0, 0);
+        Bat bat = (Bat) partner.getWorld().spawnEntity(location, EntityType.BAT);
+        bat.setAI(false);
+        bat.setSilent(true);
+        bat.setInvulnerable(true);
+        bat.setCollidable(false);
+        bat.setAwake(true);
+        bat.setInvisible(true);
+        bat.setPersistent(false);
+        bat.setLeashHolder(player);
+        leashEntities.put(player.getUniqueId(), bat.getUniqueId());
+    }
+
+    private Entity getLeashEntity(UUID playerId) {
+        UUID leashId = leashEntities.get(playerId);
+        if (leashId == null) {
+            return null;
+        }
+        return Bukkit.getEntity(leashId);
+    }
+
+    private void removeLeash(UUID playerId) {
+        Entity entity = getLeashEntity(playerId);
+        if (entity != null) {
+            entity.remove();
+        }
+        leashEntities.remove(playerId);
+    }
+
+    private void cleanupLeashes() {
+        for (UUID leashId : leashEntities.values()) {
+            Entity entity = Bukkit.getEntity(leashId);
+            if (entity != null) {
+                entity.remove();
+            }
+        }
+        leashEntities.clear();
     }
 }
