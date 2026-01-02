@@ -33,6 +33,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
 public class BingoLinkPlugin extends JavaPlugin implements Listener {
@@ -42,6 +43,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     private final Map<UUID, UUID> links = new HashMap<>();
     private final Map<UUID, Integer> inventoryHashes = new HashMap<>();
     private final Map<UUID, Long> lastInventoryChange = new HashMap<>();
+    private final Map<UUID, BukkitTask> pendingInventorySync = new HashMap<>();
     private final Map<UUID, UUID> leashEntities = new HashMap<>();
     private final Set<UUID> syncingDamage = new HashSet<>();
     private final Set<UUID> syncingDeath = new HashSet<>();
@@ -61,6 +63,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         links.clear();
         inventoryHashes.clear();
         lastInventoryChange.clear();
+        cancelPendingInventorySync();
         cleanupLeashes();
         waitingPlayer = null;
     }
@@ -111,18 +114,19 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
             links.remove(partnerId);
             inventoryHashes.remove(partnerId);
             lastInventoryChange.remove(partnerId);
-            removeLeash(partnerId);
+            removeLeashForPair(playerId, partnerId);
             Player partner = Bukkit.getPlayer(partnerId);
             if (partner != null) {
                 partner.sendMessage(ChatColor.RED + "Deine Verbindung wurde getrennt.");
             }
         }
-        removeLeash(playerId);
+        removeLeashForPair(playerId, partnerId);
         if (waitingPlayer != null && waitingPlayer.equals(playerId)) {
             waitingPlayer = null;
         }
         inventoryHashes.remove(playerId);
         lastInventoryChange.remove(playerId);
+        cancelPendingInventorySync(playerId);
     }
 
     @EventHandler
@@ -208,8 +212,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         Bukkit.getScheduler().runTask(this, () -> {
             syncStatus(player, partner);
             syncInventory(player, partner);
-            spawnLeash(player, partner);
-            spawnLeash(partner, player);
+            spawnLeashForPair(player, partner);
         });
     }
 
@@ -250,8 +253,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         playerOne.sendMessage(ChatColor.GREEN + "Du bist jetzt verbunden mit " + playerTwo.getName() + ".");
         playerTwo.sendMessage(ChatColor.GREEN + "Du bist jetzt verbunden mit " + playerOne.getName() + ".");
         syncStatus(playerOne, playerTwo);
-        spawnLeash(playerOne, playerTwo);
-        spawnLeash(playerTwo, playerOne);
+        spawnLeashForPair(playerOne, playerTwo);
     }
 
     private Player getPartner(Player player) {
@@ -286,10 +288,11 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     }
 
     private void updateLeash(Player player, Player partner) {
-        Entity leashEntity = getLeashEntity(player.getUniqueId());
+        UUID leashKey = getLeashKey(player.getUniqueId(), partner.getUniqueId());
+        Entity leashEntity = getLeashEntity(leashKey);
         if (leashEntity == null || leashEntity.isDead()) {
-            spawnLeash(player, partner);
-            leashEntity = getLeashEntity(player.getUniqueId());
+            spawnLeashForPair(player, partner);
+            leashEntity = getLeashEntity(leashKey);
         }
         if (leashEntity != null) {
             leashEntity.teleport(partner.getLocation().add(0, 1.0, 0));
@@ -382,10 +385,29 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
 
     private void markInventoryChange(Player player) {
         lastInventoryChange.put(player.getUniqueId(), System.currentTimeMillis());
+        scheduleInventorySync(player);
     }
 
-    private void spawnLeash(Player player, Player partner) {
-        removeLeash(player.getUniqueId());
+    private void scheduleInventorySync(Player player) {
+        UUID playerId = player.getUniqueId();
+        BukkitTask existing = pendingInventorySync.remove(playerId);
+        if (existing != null) {
+            existing.cancel();
+        }
+        BukkitTask task = Bukkit.getScheduler().runTask(this, () -> {
+            pendingInventorySync.remove(playerId);
+            Player partner = getPartner(player);
+            if (partner == null) {
+                return;
+            }
+            copyInventory(player, partner);
+        });
+        pendingInventorySync.put(playerId, task);
+    }
+
+    private void spawnLeashForPair(Player player, Player partner) {
+        UUID leashKey = getLeashKey(player.getUniqueId(), partner.getUniqueId());
+        removeLeash(leashKey);
         Location location = partner.getLocation().add(0, 1.0, 0);
         Bat bat = (Bat) partner.getWorld().spawnEntity(location, EntityType.BAT);
         bat.setAI(false);
@@ -396,23 +418,34 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         bat.setInvisible(true);
         bat.setPersistent(false);
         bat.setLeashHolder(player);
-        leashEntities.put(player.getUniqueId(), bat.getUniqueId());
+        leashEntities.put(leashKey, bat.getUniqueId());
     }
 
-    private Entity getLeashEntity(UUID playerId) {
-        UUID leashId = leashEntities.get(playerId);
+    private Entity getLeashEntity(UUID leashKey) {
+        UUID leashId = leashEntities.get(leashKey);
         if (leashId == null) {
             return null;
         }
         return Bukkit.getEntity(leashId);
     }
 
-    private void removeLeash(UUID playerId) {
-        Entity entity = getLeashEntity(playerId);
+    private void removeLeash(UUID leashKey) {
+        Entity entity = getLeashEntity(leashKey);
         if (entity != null) {
             entity.remove();
         }
-        leashEntities.remove(playerId);
+        leashEntities.remove(leashKey);
+    }
+
+    private void removeLeashForPair(UUID playerId, UUID partnerId) {
+        if (playerId == null || partnerId == null) {
+            return;
+        }
+        removeLeash(getLeashKey(playerId, partnerId));
+    }
+
+    private UUID getLeashKey(UUID playerId, UUID partnerId) {
+        return playerId.compareTo(partnerId) <= 0 ? playerId : partnerId;
     }
 
     private void cleanupLeashes() {
@@ -423,5 +456,19 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
             }
         }
         leashEntities.clear();
+    }
+
+    private void cancelPendingInventorySync(UUID playerId) {
+        BukkitTask task = pendingInventorySync.remove(playerId);
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
+    private void cancelPendingInventorySync() {
+        for (BukkitTask task : pendingInventorySync.values()) {
+            task.cancel();
+        }
+        pendingInventorySync.clear();
     }
 }
