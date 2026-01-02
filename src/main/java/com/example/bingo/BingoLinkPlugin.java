@@ -27,6 +27,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -43,12 +44,14 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     private final Map<UUID, Long> lastInventoryChange = new HashMap<>();
     private final Map<UUID, UUID> leashEntities = new HashMap<>();
     private final Set<UUID> syncingDamage = new HashSet<>();
+    private final Set<UUID> syncingDeath = new HashSet<>();
     private final Set<UUID> syncingFood = new HashSet<>();
     private final Set<UUID> syncingHealth = new HashSet<>();
     private UUID waitingPlayer;
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
         Bukkit.getPluginManager().registerEvents(this, this);
         startSyncTask();
     }
@@ -73,6 +76,11 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         }
         if (links.containsKey(player.getUniqueId())) {
             player.sendMessage(ChatColor.RED + "Du bist bereits verbunden.");
+            return true;
+        }
+        int maxLinkedPlayers = getConfig().getInt("max-linked-players", 2);
+        if (maxLinkedPlayers > 0 && links.size() >= maxLinkedPlayers) {
+            player.sendMessage(ChatColor.RED + "Die maximale Anzahl verbundener Spieler ist erreicht.");
             return true;
         }
         if (waitingPlayer != null && !waitingPlayer.equals(player.getUniqueId())) {
@@ -178,7 +186,31 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         if (partner == null) {
             return;
         }
-        partner.setHealth(0.0);
+        if (syncingDeath.contains(player.getUniqueId())) {
+            return;
+        }
+        syncingDeath.add(partner.getUniqueId());
+        Bukkit.getScheduler().runTask(this, () -> {
+            if (!partner.isDead() && partner.isOnline()) {
+                partner.setHealth(0.0);
+            }
+            syncingDeath.remove(partner.getUniqueId());
+        });
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+        Player partner = getPartner(player);
+        if (partner == null) {
+            return;
+        }
+        Bukkit.getScheduler().runTask(this, () -> {
+            syncStatus(player, partner);
+            syncInventory(player, partner);
+            spawnLeash(player, partner);
+            spawnLeash(partner, player);
+        });
     }
 
     @EventHandler
