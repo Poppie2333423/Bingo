@@ -1,8 +1,10 @@
 package com.example.bingo;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -32,12 +34,13 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     private static final int PARTICLE_STEPS = 10;
     private static final float PARTICLE_SIZE = 0.6f;
 
-    private final Map<UUID, UUID> links = new HashMap<>();
-    private final Map<UUID, Integer> inventoryHashes = new HashMap<>();
+    private final Map<UUID, Set<UUID>> groups = new HashMap<>();
+    private final Map<UUID, UUID> playerGroups = new HashMap<>();
+    private final List<UUID> waitingPlayers = new ArrayList<>();
     private final Set<UUID> syncingDamage = new HashSet<>();
     private final Set<UUID> syncingFood = new HashSet<>();
     private final Set<UUID> syncingHealth = new HashSet<>();
-    private UUID waitingPlayer;
+    private final Set<UUID> syncingDeath = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -48,9 +51,9 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
-        links.clear();
-        inventoryHashes.clear();
-        waitingPlayer = null;
+        groups.clear();
+        playerGroups.clear();
+        waitingPlayers.clear();
     }
 
     @Override
@@ -62,51 +65,70 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
             sender.sendMessage(ChatColor.RED + "Dieser Befehl ist nur für Spieler.");
             return true;
         }
-        if (links.containsKey(player.getUniqueId())) {
+        if (playerGroups.containsKey(player.getUniqueId())) {
             player.sendMessage(ChatColor.RED + "Du bist bereits verbunden.");
             return true;
         }
-        int maxLinkedPlayers = getConfig().getInt("max-linked-players", 2);
-        if (maxLinkedPlayers > 0 && links.size() >= maxLinkedPlayers) {
-            player.sendMessage(ChatColor.RED + "Die maximale Anzahl verbundener Spieler ist erreicht.");
+        if (waitingPlayers.contains(player.getUniqueId())) {
+            player.sendMessage(ChatColor.YELLOW + "Du wartest bereits auf weitere Spieler.");
             return true;
         }
-        if (waitingPlayer != null && !waitingPlayer.equals(player.getUniqueId())) {
-            Player other = Bukkit.getPlayer(waitingPlayer);
-            if (other != null && other.isOnline()) {
-                createLink(player, other);
-                waitingPlayer = null;
-                return true;
+        int groupSize = Math.max(2, getConfig().getInt("max-linked-players", 2));
+        waitingPlayers.add(player.getUniqueId());
+        int waitingCount = waitingPlayers.size();
+        if (waitingCount < groupSize) {
+            player.sendMessage(ChatColor.YELLOW + "Warte auf weitere Spieler (" + waitingCount + "/" + groupSize + ").");
+            return true;
+        }
+        List<Player> readyPlayers = new ArrayList<>();
+        List<UUID> consumed = new ArrayList<>();
+        for (UUID id : waitingPlayers) {
+            Player candidate = Bukkit.getPlayer(id);
+            if (candidate != null && candidate.isOnline() && !playerGroups.containsKey(id)) {
+                readyPlayers.add(candidate);
+                consumed.add(id);
+            }
+            if (readyPlayers.size() == groupSize) {
+                break;
             }
         }
-        waitingPlayer = player.getUniqueId();
-        player.sendMessage(ChatColor.YELLOW + "Warte auf einen zweiten Spieler mit /start.");
+        waitingPlayers.removeAll(consumed);
+        if (readyPlayers.size() < groupSize) {
+            player.sendMessage(ChatColor.YELLOW + "Es fehlen noch Spieler für die Verbindung.");
+            return true;
+        }
+        createGroup(readyPlayers);
         return true;
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        if (waitingPlayer != null && waitingPlayer.equals(event.getPlayer().getUniqueId())) {
-            event.getPlayer().sendMessage(ChatColor.YELLOW + "Du wartest noch auf einen zweiten Spieler.");
+        if (waitingPlayers.contains(event.getPlayer().getUniqueId())) {
+            event.getPlayer().sendMessage(ChatColor.YELLOW + "Du wartest noch auf weitere Spieler.");
         }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
-        UUID partnerId = links.remove(playerId);
-        if (partnerId != null) {
-            links.remove(partnerId);
-            inventoryHashes.remove(partnerId);
-            Player partner = Bukkit.getPlayer(partnerId);
-            if (partner != null) {
-                partner.sendMessage(ChatColor.RED + "Deine Verbindung wurde getrennt.");
+        waitingPlayers.remove(playerId);
+        UUID groupId = playerGroups.remove(playerId);
+        if (groupId == null) {
+            return;
+        }
+        Set<UUID> members = groups.remove(groupId);
+        if (members == null) {
+            return;
+        }
+        for (UUID memberId : members) {
+            playerGroups.remove(memberId);
+            if (!memberId.equals(playerId)) {
+                Player member = Bukkit.getPlayer(memberId);
+                if (member != null) {
+                    member.sendMessage(ChatColor.RED + "Deine Verbindung wurde getrennt.");
+                }
             }
         }
-        if (waitingPlayer != null && waitingPlayer.equals(playerId)) {
-            waitingPlayer = null;
-        }
-        inventoryHashes.remove(playerId);
     }
 
     @EventHandler
@@ -114,16 +136,29 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         if (!(event.getEntity() instanceof Player player)) {
             return;
         }
-        Player partner = getPartner(player);
-        if (partner == null) {
+        UUID groupId = playerGroups.get(player.getUniqueId());
+        if (groupId == null) {
             return;
         }
         if (syncingDamage.contains(player.getUniqueId())) {
             return;
         }
-        syncingDamage.add(partner.getUniqueId());
-        partner.damage(event.getFinalDamage(), player);
-        syncingDamage.remove(partner.getUniqueId());
+        Set<UUID> members = groups.get(groupId);
+        if (members == null) {
+            return;
+        }
+        for (UUID memberId : members) {
+            if (memberId.equals(player.getUniqueId())) {
+                continue;
+            }
+            Player member = Bukkit.getPlayer(memberId);
+            if (member == null) {
+                continue;
+            }
+            syncingDamage.add(memberId);
+            member.damage(event.getFinalDamage(), player);
+            syncingDamage.remove(memberId);
+        }
     }
 
     @EventHandler
@@ -131,18 +166,31 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         if (!(event.getEntity() instanceof Player player)) {
             return;
         }
-        Player partner = getPartner(player);
-        if (partner == null) {
+        UUID groupId = playerGroups.get(player.getUniqueId());
+        if (groupId == null) {
             return;
         }
         if (syncingHealth.contains(player.getUniqueId())) {
             return;
         }
-        syncingHealth.add(partner.getUniqueId());
-        double newHealth = Math.min(partner.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).getValue(),
-                partner.getHealth() + event.getAmount());
-        partner.setHealth(newHealth);
-        syncingHealth.remove(partner.getUniqueId());
+        Set<UUID> members = groups.get(groupId);
+        if (members == null) {
+            return;
+        }
+        for (UUID memberId : members) {
+            if (memberId.equals(player.getUniqueId())) {
+                continue;
+            }
+            Player member = Bukkit.getPlayer(memberId);
+            if (member == null) {
+                continue;
+            }
+            syncingHealth.add(memberId);
+            double newHealth = Math.min(member.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).getValue(),
+                    member.getHealth() + event.getAmount());
+            member.setHealth(newHealth);
+            syncingHealth.remove(memberId);
+        }
     }
 
     @EventHandler
@@ -150,66 +198,122 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         if (!(event.getEntity() instanceof Player player)) {
             return;
         }
-        Player partner = getPartner(player);
-        if (partner == null) {
+        UUID groupId = playerGroups.get(player.getUniqueId());
+        if (groupId == null) {
             return;
         }
         if (syncingFood.contains(player.getUniqueId())) {
             return;
         }
-        syncingFood.add(partner.getUniqueId());
-        partner.setFoodLevel(event.getFoodLevel());
-        partner.setSaturation(player.getSaturation());
-        syncingFood.remove(partner.getUniqueId());
+        Set<UUID> members = groups.get(groupId);
+        if (members == null) {
+            return;
+        }
+        for (UUID memberId : members) {
+            if (memberId.equals(player.getUniqueId())) {
+                continue;
+            }
+            Player member = Bukkit.getPlayer(memberId);
+            if (member == null) {
+                continue;
+            }
+            syncingFood.add(memberId);
+            member.setFoodLevel(event.getFoodLevel());
+            member.setSaturation(player.getSaturation());
+            syncingFood.remove(memberId);
+        }
     }
 
     @EventHandler
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
-        Player partner = getPartner(player);
-        if (partner == null) {
+        UUID groupId = playerGroups.get(player.getUniqueId());
+        if (groupId == null) {
             return;
         }
-        partner.setHealth(0.0);
-    }
-
-    private void createLink(Player playerOne, Player playerTwo) {
-        links.put(playerOne.getUniqueId(), playerTwo.getUniqueId());
-        links.put(playerTwo.getUniqueId(), playerOne.getUniqueId());
-        playerOne.sendMessage(ChatColor.GREEN + "Du bist jetzt verbunden mit " + playerTwo.getName() + ".");
-        playerTwo.sendMessage(ChatColor.GREEN + "Du bist jetzt verbunden mit " + playerOne.getName() + ".");
-        syncStatus(playerOne, playerTwo);
-    }
-
-    private Player getPartner(Player player) {
-        UUID partnerId = links.get(player.getUniqueId());
-        if (partnerId == null) {
-            return null;
+        if (syncingDeath.contains(player.getUniqueId())) {
+            return;
         }
-        return Bukkit.getPlayer(partnerId);
+        Set<UUID> members = groups.get(groupId);
+        if (members == null) {
+            return;
+        }
+        for (UUID memberId : members) {
+            if (memberId.equals(player.getUniqueId())) {
+                continue;
+            }
+            Player member = Bukkit.getPlayer(memberId);
+            if (member == null) {
+                continue;
+            }
+            syncingDeath.add(memberId);
+            member.setHealth(0.0);
+            syncingDeath.remove(memberId);
+        }
+    }
+
+    private void createGroup(List<Player> players) {
+        UUID groupId = players.stream()
+                .map(Player::getUniqueId)
+                .min(UUID::compareTo)
+                .orElseThrow();
+        Set<UUID> members = new HashSet<>();
+        for (Player player : players) {
+            members.add(player.getUniqueId());
+            playerGroups.put(player.getUniqueId(), groupId);
+        }
+        groups.put(groupId, members);
+        for (Player player : players) {
+            player.sendMessage(ChatColor.GREEN + "Du bist jetzt verbunden mit " + groupNames(player, players) + ".");
+        }
+        syncStatus(players);
+    }
+
+    private String groupNames(Player self, List<Player> players) {
+        List<String> names = new ArrayList<>();
+        for (Player player : players) {
+            if (!player.getUniqueId().equals(self.getUniqueId())) {
+                names.add(player.getName());
+            }
+        }
+        return String.join(", ", names);
     }
 
     private void startSyncTask() {
         new BukkitRunnable() {
             @Override
             public void run() {
-                for (Map.Entry<UUID, UUID> entry : links.entrySet()) {
-                    UUID playerId = entry.getKey();
-                    Player player = Bukkit.getPlayer(playerId);
-                    Player partner = Bukkit.getPlayer(entry.getValue());
-                    if (player == null || partner == null) {
+                for (Map.Entry<UUID, Set<UUID>> entry : groups.entrySet()) {
+                    List<Player> players = getOnlinePlayers(entry.getValue());
+                    if (players.size() < 2) {
                         continue;
                     }
-                    if (playerId.compareTo(partner.getUniqueId()) > 0) {
-                        continue;
-                    }
-                    drawLink(player, partner);
-                    enforceDistance(player, partner);
-                    syncStatus(player, partner);
-                    syncInventory(player, partner);
+                    drawLinks(players);
+                    enforceDistance(players);
+                    syncStatus(players);
+                    syncInventory(players);
                 }
             }
         }.runTaskTimer(this, 0L, 5L);
+    }
+
+    private List<Player> getOnlinePlayers(Set<UUID> members) {
+        List<Player> players = new ArrayList<>();
+        for (UUID memberId : members) {
+            Player player = Bukkit.getPlayer(memberId);
+            if (player != null) {
+                players.add(player);
+            }
+        }
+        return players;
+    }
+
+    private void drawLinks(List<Player> players) {
+        for (int i = 0; i < players.size(); i++) {
+            for (int j = i + 1; j < players.size(); j++) {
+                drawLink(players.get(i), players.get(j));
+            }
+        }
     }
 
     private void drawLink(Player player, Player partner) {
@@ -220,6 +324,14 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
             Vector point = start.clone().add(step.clone().multiply(i));
             player.getWorld().spawnParticle(Particle.DUST, point.getX(), point.getY(), point.getZ(), 1,
                     new Particle.DustOptions(org.bukkit.Color.fromRGB(160, 82, 45), PARTICLE_SIZE));
+        }
+    }
+
+    private void enforceDistance(List<Player> players) {
+        for (int i = 0; i < players.size(); i++) {
+            for (int j = i + 1; j < players.size(); j++) {
+                enforceDistance(players.get(i), players.get(j));
+            }
         }
     }
 
@@ -234,46 +346,51 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         partner.setVelocity(toPlayer.multiply(PULL_STRENGTH));
     }
 
-    private void syncStatus(Player player, Player partner) {
-        double playerMaxHealth = player.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).getValue();
-        double partnerMaxHealth = partner.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).getValue();
-        double targetHealth = Math.min(Math.min(playerMaxHealth, partnerMaxHealth),
-                Math.max(player.getHealth(), partner.getHealth()));
-        player.setHealth(targetHealth);
-        partner.setHealth(targetHealth);
-
-        int targetFood = Math.max(player.getFoodLevel(), partner.getFoodLevel());
-        float targetSaturation = Math.max(player.getSaturation(), partner.getSaturation());
-        player.setFoodLevel(targetFood);
-        partner.setFoodLevel(targetFood);
-        player.setSaturation(targetSaturation);
-        partner.setSaturation(targetSaturation);
+    private void syncStatus(List<Player> players) {
+        double maxHealth = 0.0;
+        double minMaxHealth = Double.MAX_VALUE;
+        int maxFood = 0;
+        float maxSaturation = 0.0f;
+        for (Player player : players) {
+            maxHealth = Math.max(maxHealth, player.getHealth());
+            double playerMaxHealth = player.getAttribute(org.bukkit.attribute.Attribute.GENERIC_MAX_HEALTH).getValue();
+            minMaxHealth = Math.min(minMaxHealth, playerMaxHealth);
+            maxFood = Math.max(maxFood, player.getFoodLevel());
+            maxSaturation = Math.max(maxSaturation, player.getSaturation());
+        }
+        double targetHealth = Math.min(minMaxHealth, maxHealth);
+        for (Player player : players) {
+            player.setHealth(targetHealth);
+            player.setFoodLevel(maxFood);
+            player.setSaturation(maxSaturation);
+        }
     }
 
-    private void syncInventory(Player player, Player partner) {
-        int playerHash = inventoryHash(player.getInventory());
-        int partnerHash = inventoryHash(partner.getInventory());
-        Integer storedHash = inventoryHashes.get(player.getUniqueId());
-        if (storedHash == null) {
-            storedHash = playerHash;
+    private void syncInventory(List<Player> players) {
+        Player source = players.stream()
+                .min((a, b) -> a.getUniqueId().compareTo(b.getUniqueId()))
+                .orElse(null);
+        if (source == null) {
+            return;
         }
-        if (playerHash != partnerHash) {
-            if (playerHash != storedHash && partnerHash == storedHash) {
-                copyInventory(player, partner);
-                inventoryHashes.put(player.getUniqueId(), playerHash);
-                inventoryHashes.put(partner.getUniqueId(), playerHash);
-            } else if (partnerHash != storedHash && playerHash == storedHash) {
-                copyInventory(partner, player);
-                inventoryHashes.put(player.getUniqueId(), partnerHash);
-                inventoryHashes.put(partner.getUniqueId(), partnerHash);
-            } else {
-                copyInventory(player, partner);
-                inventoryHashes.put(player.getUniqueId(), playerHash);
-                inventoryHashes.put(partner.getUniqueId(), playerHash);
+        int sourceHash = inventoryHash(source.getInventory());
+        boolean needsSync = false;
+        for (Player player : players) {
+            if (player.getUniqueId().equals(source.getUniqueId())) {
+                continue;
             }
-        } else {
-            inventoryHashes.put(player.getUniqueId(), playerHash);
-            inventoryHashes.put(partner.getUniqueId(), partnerHash);
+            if (inventoryHash(player.getInventory()) != sourceHash) {
+                needsSync = true;
+                break;
+            }
+        }
+        if (!needsSync) {
+            return;
+        }
+        for (Player player : players) {
+            if (!player.getUniqueId().equals(source.getUniqueId())) {
+                copyInventory(source, player);
+            }
         }
     }
 
