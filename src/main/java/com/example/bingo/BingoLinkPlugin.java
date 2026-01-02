@@ -215,6 +215,14 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         if (members == null) {
             return;
         }
+        int currentFood = player.getFoodLevel();
+        int newFood = event.getFoodLevel();
+        if (newFood < currentFood) {
+            int groupSize = Math.max(1, members.size());
+            int delta = currentFood - newFood;
+            newFood = Math.max(0, currentFood - (delta * groupSize));
+            event.setFoodLevel(newFood);
+        }
         for (UUID memberId : members) {
             if (memberId.equals(player.getUniqueId())) {
                 continue;
@@ -224,7 +232,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
                 continue;
             }
             syncingFood.add(memberId);
-            member.setFoodLevel(event.getFoodLevel());
+            member.setFoodLevel(newFood);
             member.setSaturation(player.getSaturation());
             syncingFood.remove(memberId);
         }
@@ -259,6 +267,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
     }
 
     private void createGroup(List<Player> players) {
+        Player starter = players.get(0);
         UUID groupId = players.stream()
                 .map(Player::getUniqueId)
                 .min(UUID::compareTo)
@@ -272,7 +281,23 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         for (Player player : players) {
             player.sendMessage(ChatColor.GREEN + "Du bist jetzt verbunden mit " + groupNames(player, players) + ".");
         }
+        clearAndCopyInventory(starter, players);
         syncStatus(players);
+    }
+
+    private void clearAndCopyInventory(Player starter, List<Player> players) {
+        PlayerInventory starterInv = starter.getInventory();
+        for (Player player : players) {
+            if (player.getUniqueId().equals(starter.getUniqueId())) {
+                continue;
+            }
+            PlayerInventory targetInv = player.getInventory();
+            targetInv.clear();
+            targetInv.setArmorContents(new ItemStack[starterInv.getArmorContents().length]);
+            targetInv.setItemInOffHand(null);
+            copyInventory(starter, player);
+        }
+        updateInventoryHashes(players);
     }
 
     private String groupNames(Player self, List<Player> players) {
@@ -301,7 +326,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
                     syncInventory(players);
                 }
             }
-        }.runTaskTimer(this, 0L, 5L);
+        }.runTaskTimer(this, 0L, 1L);
     }
 
     private List<Player> getOnlinePlayers(Set<UUID> members) {
