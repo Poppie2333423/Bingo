@@ -29,7 +29,8 @@ import org.bukkit.util.Vector;
 public class BingoLinkPlugin extends JavaPlugin implements Listener {
     private static final double MAX_DISTANCE = 10.0;
     private static final double PULL_STRENGTH = 0.3;
-    private static final int PARTICLE_STEPS = 20;
+    private static final int PARTICLE_STEPS = 10;
+    private static final float PARTICLE_SIZE = 0.6f;
 
     private final Map<UUID, UUID> links = new HashMap<>();
     private final Map<UUID, Integer> inventoryHashes = new HashMap<>();
@@ -40,6 +41,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
         Bukkit.getPluginManager().registerEvents(this, this);
         startSyncTask();
     }
@@ -62,6 +64,11 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         }
         if (links.containsKey(player.getUniqueId())) {
             player.sendMessage(ChatColor.RED + "Du bist bereits verbunden.");
+            return true;
+        }
+        int maxLinkedPlayers = getConfig().getInt("max-linked-players", 2);
+        if (maxLinkedPlayers > 0 && links.size() >= maxLinkedPlayers) {
+            player.sendMessage(ChatColor.RED + "Die maximale Anzahl verbundener Spieler ist erreicht.");
             return true;
         }
         if (waitingPlayer != null && !waitingPlayer.equals(player.getUniqueId())) {
@@ -212,7 +219,7 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         for (int i = 0; i <= PARTICLE_STEPS; i++) {
             Vector point = start.clone().add(step.clone().multiply(i));
             player.getWorld().spawnParticle(Particle.DUST, point.getX(), point.getY(), point.getZ(), 1,
-                    new Particle.DustOptions(org.bukkit.Color.fromRGB(160, 82, 45), 1.2f));
+                    new Particle.DustOptions(org.bukkit.Color.fromRGB(160, 82, 45), PARTICLE_SIZE));
         }
     }
 
