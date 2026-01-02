@@ -1,0 +1,8 @@
+name: RandomEvents
+main: de.bingo.randomevents.RandomEventsPlugin
+version: 1.0.0
+api-version: '1.21'
+commands:
+  start:
+    description: Startet die Random-Events alle 30 Sekunden
+    usage: /start
