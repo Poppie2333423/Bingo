@@ -296,6 +296,9 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         }
         if (leashEntity != null) {
             leashEntity.teleport(partner.getLocation().add(0, 1.0, 0));
+            if (leashEntity instanceof Bat bat && !bat.isLeashed()) {
+                bat.setLeashHolder(player);
+            }
         }
     }
 
@@ -416,7 +419,8 @@ public class BingoLinkPlugin extends JavaPlugin implements Listener {
         bat.setCollidable(false);
         bat.setAwake(true);
         bat.setInvisible(true);
-        bat.setPersistent(false);
+        bat.setPersistent(true);
+        bat.setRemoveWhenFarAway(false);
         bat.setLeashHolder(player);
         leashEntities.put(leashKey, bat.getUniqueId());
     }
