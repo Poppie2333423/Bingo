@@ -1,0 +1,15 @@
+name: MissileWars
+main: com.example.missilewars.MissileWarsPlugin
+version: 1.0.0
+api-version: "1.21"
+commands:
+  missilewars:
+    description: Missile Wars commands
+    usage: /missilewars <subcommand>
+    aliases: [mw]
+  start:
+    description: Start the Missile Wars game
+    usage: /start
+permissions:
+  missilewars.admin:
+    default: op
