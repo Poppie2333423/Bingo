@@ -55,6 +55,7 @@ public class StartCommand implements CommandExecutor {
                 player.sendMessage("§9Du bist im blauen Team!");
             }
         }
+        plugin.startSession(definition, players);
         Bukkit.broadcastMessage("§aMissile Wars wurde gestartet auf Map §e" + definition.getName() + "§a.");
         return true;
     }
