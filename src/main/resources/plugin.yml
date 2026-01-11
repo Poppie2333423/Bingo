@@ -1,0 +1,18 @@
+name: MissileWars
+main: com.bingo.missilewars.MissileWarsPlugin
+version: 1.0.0
+api-version: '1.21'
+commands:
+  start:
+    description: Startet eine Missile Wars Runde.
+    usage: /start
+    permission: missilewars.start
+  missilewars:
+    description: Verwalte Missile Wars Maps und Einstellungen.
+    usage: /missilewars
+    permission: missilewars.admin
+permissions:
+  missilewars.start:
+    default: op
+  missilewars.admin:
+    default: op
