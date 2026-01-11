@@ -21,6 +21,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
+import org.bukkit.Axis;
 import org.bukkit.block.data.Orientable;
 import org.bukkit.block.data.Rotatable;
 import org.bukkit.block.data.type.Piston;
@@ -186,8 +187,8 @@ public class MissileWarsPlugin extends JavaPlugin implements Listener, CommandEx
             }
             if (current instanceof Orientable orientable) {
                 switch (orientable.getAxis()) {
-                    case X -> orientable.setAxis(Orientable.Axis.Z);
-                    case Z -> orientable.setAxis(Orientable.Axis.X);
+                    case X -> orientable.setAxis(Axis.Z);
+                    case Z -> orientable.setAxis(Axis.X);
                     default -> {
                     }
                 }
