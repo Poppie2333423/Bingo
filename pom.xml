@@ -17,7 +17,7 @@
         <fabric.loader.version>0.15.11</fabric.loader.version>
         <fabric.api.version>0.100.0+1.21</fabric.api.version>
         <pehkui.version>3.8.1+1.21</pehkui.version>
-        <loom.version>1.7-SNAPSHOT</loom.version>
+        <loom.version>1.6.7</loom.version>
     </properties>
 
     <repositories>
@@ -34,6 +34,17 @@
             <url>https://repo.maven.apache.org/maven2</url>
         </repository>
     </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>fabric</id>
+            <url>https://maven.fabricmc.net/</url>
+        </pluginRepository>
+        <pluginRepository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </pluginRepository>
+    </pluginRepositories>
 
     <dependencies>
         <dependency>
