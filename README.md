@@ -8,14 +8,10 @@ Dieses Projekt ist ein Fabric-Server-Plugin (Mod) für Minecraft 1.21 mit Pehkui
 - Optionaler Befehl zur manuellen Vergabe: `/zauberstab [targets]`.
 
 ## Build
-Dieses Projekt nutzt **Gradle (Fabric Loom)** und hat kein `pom.xml`. Baue es daher mit Gradle:
+Dieses Projekt nutzt **Maven**. Baue es daher mit:
 
 ```bash
-# macOS/Linux
-./gradlew build
-
-# Windows
-gradlew.bat build
+mvn clean package
 ```
 
-Das fertige JAR liegt danach unter `build/libs/`.
+Das fertige JAR liegt danach unter `target/`.

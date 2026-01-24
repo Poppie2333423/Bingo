@@ -1,0 +1,90 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.bingo</groupId>
+    <artifactId>bingo-wand</artifactId>
+    <version>1.0.0</version>
+    <name>Bingo Zauberstab</name>
+    <description>Fabric-Server-Plugin mit Pehkui für Zauberstab-Skalierung.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>21</maven.compiler.release>
+        <minecraft.version>1.21</minecraft.version>
+        <yarn.mappings>1.21+build.1</yarn.mappings>
+        <fabric.loader.version>0.15.11</fabric.loader.version>
+        <fabric.api.version>0.100.0+1.21</fabric.api.version>
+        <pehkui.version>3.8.1+1.21</pehkui.version>
+        <loom.version>1.7-SNAPSHOT</loom.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>fabric</id>
+            <url>https://maven.fabricmc.net/</url>
+        </repository>
+        <repository>
+            <id>virtuoel</id>
+            <url>https://maven.virtuoel.net/</url>
+        </repository>
+        <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.mojang</groupId>
+            <artifactId>minecraft</artifactId>
+            <version>${minecraft.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.fabricmc</groupId>
+            <artifactId>yarn</artifactId>
+            <version>${yarn.mappings}</version>
+            <classifier>v2</classifier>
+        </dependency>
+        <dependency>
+            <groupId>net.fabricmc</groupId>
+            <artifactId>fabric-loader</artifactId>
+            <version>${fabric.loader.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.fabricmc.fabric-api</groupId>
+            <artifactId>fabric-api</artifactId>
+            <version>${fabric.api.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>virtuoel.pehkui</groupId>
+            <artifactId>pehkui</artifactId>
+            <version>${pehkui.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>net.fabricmc</groupId>
+                <artifactId>fabric-loom-maven</artifactId>
+                <version>${loom.version}</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <minecraftVersion>${minecraft.version}</minecraftVersion>
+                    <mappings>${yarn.mappings}</mappings>
+                    <loaderVersion>${fabric.loader.version}</loaderVersion>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
