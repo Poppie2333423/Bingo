@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "bingo",
+  "version": "${version}",
+  "name": "Bingo Magic Wand",
+  "description": "Gives players a magic wand that changes their scale using Pehkui.",
+  "authors": ["ChatGPT"],
+  "contact": {
+    "sources": "https://example.com"
+  },
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.example.bingo.BingoMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.11",
+    "fabric": "*",
+    "minecraft": "1.21.x",
+    "pehkui": "*"
+  }
+}
