@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "bingo",
+  "version": "${version}",
+  "name": "Bingo Zauberstab",
+  "description": "Gibt Spielern einen Zauberstab und skaliert sie per Pehkui.",
+  "authors": [
+    "OpenAI"
+  ],
+  "license": "MIT",
+  "environment": "server",
+  "entrypoints": {
+    "main": [
+      "de.bingo.BingoWandMod"
+    ]
+  },
+  "depends": {
+    "minecraft": "1.21.x",
+    "fabricloader": ">=0.15.0",
+    "fabric": "*",
+    "pehkui": "*"
+  }
+}
