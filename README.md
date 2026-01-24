@@ -2,7 +2,7 @@
 
 ## Zauberstab-Datapack (Minecraft 1.21 + Pehkui)
 
-Dieses Repository enthält ein Datapack, das jedem Spieler beim ersten Join einen Zauberstab gibt und die Größe über die Pehkui-Mod steuert:
+Dieses Repository enthält ein Datapack, das jedem Spieler automatisch einen Zauberstab gibt (und ihn bei Verlust erneut vergibt) und die Größe über die Pehkui-Mod steuert:
 
 - **Rechtsklick** mit dem Zauberstab: 0,1 Schritte kleiner.
 - **Linksklick** (ein Entity treffen) mit dem Zauberstab: 0,1 Schritte größer.
