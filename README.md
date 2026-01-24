@@ -11,7 +11,11 @@ Dieses Projekt ist ein Fabric-Server-Plugin (Mod) für Minecraft 1.21 mit Pehkui
 Dieses Projekt nutzt **Gradle (Fabric Loom)** und hat kein `pom.xml`. Baue es daher mit Gradle:
 
 ```bash
+# macOS/Linux
 ./gradlew build
+
+# Windows
+gradlew.bat build
 ```
 
 Das fertige JAR liegt danach unter `build/libs/`.
